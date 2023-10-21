@@ -38,7 +38,7 @@ class SFC(nx.DiGraph):
             else:
                 pass
 
-        self.add_edge('in', 'vnf1')
+        self.add_edge('in', 'vnf1', node_deployed='', edges_deployed=[])
         for i in range(1, num):
-            self.add_edge('vnf' + str(i), 'vnf' + str(i+1))
-        self.add_edge('vnf' + str(num), 'out')
+            self.add_edge('vnf' + str(i), 'vnf' + str(i+1), node_deployed='', edges_deployed=[])
+        self.add_edge('vnf' + str(num), 'out', node_deployed='', edges_deployed=[])

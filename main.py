@@ -13,6 +13,6 @@ vnf_type_dict.update({list(vnf_type_info.keys())[0]: VNFType(vnf_type_info) for 
 sfc_dict.update({list(sfc_info.keys())[0]: SFC(sfc_info, vnf_type_dict) for sfc_info in sfc_template})
 
 
-network = Network(template=template)
+network = Network(template=template, vnf_type_dict=vnf_type_dict)
 
 print(0)
