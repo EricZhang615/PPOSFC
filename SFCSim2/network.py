@@ -146,6 +146,18 @@ class Network(nx.Graph):
                     self.edges[edge_deployed]['vl_dict'][sfc.name].remove(vl)
             sfc.edges[vl]['edges_deployed'] = []
 
+    def undeploy_sfc(self, sfc) -> (bool, str):
+        if not sfc.is_deployed():
+            return False, f"undeploy sfc failed -- sfc: {sfc.name} status: {sfc.status}"
+        # undeploy vnf
+        for vnf in sfc.nodes:
+            if vnf != 'in' and vnf != 'out':
+                self.undeploy_vnf(sfc, vnf)
+        for vl in sfc.edges:
+            self.undeploy_vl(sfc, vl)
+        sfc.status_idle()
+        return True, f"undeploy sfc success -- sfc: {sfc.name}"
+
     def deploy_sfc_by_vnf(self, sfc: SFC, target_node_dict) -> (bool, str):
         '''
         按vnf目标节点部署sfc；vnf根据输入目标物理节点部署，vl按节点间最短路径部署
@@ -163,7 +175,7 @@ class Network(nx.Graph):
         assert len(target_node_dict) == sfc.number_of_nodes() - 2, 'target_node_dict length not match sfc number of vnfs'
         # sfc是否已经部署
         if sfc.is_deployed():
-            return False, f"deploy sfc failed -- sfc status: {sfc.status}"
+            return False, f"deploy sfc failed -- sfc: {sfc.name} status: {sfc.status}"
         # 生成链路部署方案
         vl_deploy_plan = {}     # {('in', 'vnf1'): 'node1', ('vnf1', 'vnf2'): [('node1', 'node2'), ...], ...}
         for vl in sfc.edges:
