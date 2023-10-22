@@ -39,8 +39,8 @@ class Network(nx.Graph):
 
     def check_before_deploy_vnf(self, sfc: SFC, vnf, target_node) -> int:
         # 判断vnf target node正确
-        assert vnf in sfc.nodes, 'vnf not in sfc'
-        assert target_node in self.nodes, 'target_node not in network'
+        assert vnf in sfc.nodes, f'vnf {vnf} not in sfc'
+        assert target_node in self.nodes, f'target_node {target_node} not in network'
         # 判断有剩余resources
         cpu_limit = self.nodes[target_node]['resources_cpu']
         cpu_used = self.nodes[target_node]['resources_cpu_used']
@@ -82,20 +82,20 @@ class Network(nx.Graph):
 
     def check_before_deploy_vl(self, sfc: SFC, vl, target) -> int:
         # 确认vl正确
-        assert vl in sfc.edges, 'vl not in sfc'
+        assert vl in sfc.edges, f'vl {vl} not in sfc'
         # 确认target是str或list
-        assert isinstance(target, str) ^ isinstance(target, list), 'target type incorrect'
+        assert isinstance(target, str) ^ isinstance(target, list), f'target type {type(target)} incorrect'
         delay = 0
         if isinstance(target, str):
             # 内部部署
-            assert target in self.nodes, 'target_node not in network'
+            assert target in self.nodes, f'target_node {target} not in network'
         else:
             # 链路部署
             for target_edge in target:
-                assert target_edge in self.edges, 'target_edge not in network'
+                assert target_edge in self.edges, f'target_edge {target_edge} not in network'
                 # 判断有剩余带宽
                 bandwidth_used = self.edges[target_edge]['bandwidth_used']
-                assert bandwidth_used + sfc.edges[vl]['bandwidth'] <= self.edges[target_edge]['bandwidth'], 'bandwidth not enough'
+                assert bandwidth_used + sfc.bandwidth <= self.edges[target_edge]['bandwidth'], 'bandwidth not enough'
                 delay += self.edges[target_edge]['transmission_delay']
         # 返回增加的delay
         return delay
@@ -121,7 +121,7 @@ class Network(nx.Graph):
                 # 将target link 写入vl上
                 sfc.edges[vl]['edges_deployed'].append(target_edge)
                 # 将vl消耗的bandwidth 写入物理链路上
-                self.edges[target_edge]['bandwidth_used'] += sfc.edges[vl]['bandwidth']
+                self.edges[target_edge]['bandwidth_used'] += sfc.bandwidth
                 # 将物理链路的transmission delay 写入sfc上
                 sfc.delay_actual += self.edges[target_edge]['transmission_delay']
 
@@ -137,7 +137,7 @@ class Network(nx.Graph):
                 self.nodes[node_deployed]['vl_dict'][sfc.name].remove(vl)
         else:
             for edge_deployed in sfc.edges[vl]['edges_deployed']:
-                self.edges[edge_deployed]['bandwidth_used'] -= sfc.edges[vl]['bandwidth']
+                self.edges[edge_deployed]['bandwidth_used'] -= sfc.bandwidth
                 sfc.delay_actual -= self.edges[edge_deployed]['transmission_delay']
                 # 去掉vl信息
                 if len(self.edges[edge_deployed]['vl_dict'][sfc.name]) == 1:
@@ -161,6 +161,9 @@ class Network(nx.Graph):
         '''
         # 检查入参
         assert len(target_node_dict) == sfc.number_of_nodes() - 2, 'target_node_dict length not match sfc number of vnfs'
+        # sfc是否已经部署
+        if sfc.is_deployed():
+            return False, f"deploy sfc failed -- sfc status: {sfc.status}"
         # 生成链路部署方案
         vl_deploy_plan = {}     # {('in', 'vnf1'): 'node1', ('vnf1', 'vnf2'): [('node1', 'node2'), ...], ...}
         for vl in sfc.edges:
@@ -188,7 +191,8 @@ class Network(nx.Graph):
                 return False, f"deploy sfc failed -- vnf: {e}"
 
         # 检查vl部署是否可行
-        for vl, target in vl_deploy_plan:
+        for vl in vl_deploy_plan:
+            target = vl_deploy_plan[vl]
             try:
                 delay += self.check_before_deploy_vl(sfc, vl, target)
             except AssertionError as e:
@@ -201,7 +205,9 @@ class Network(nx.Graph):
         # 部署sfc
         for vnf, target_node in target_node_dict.items():
             self.deploy_vnf(sfc, vnf, target_node)
-        for vl, target in vl_deploy_plan.items():
+        for vl in vl_deploy_plan:
+            target = vl_deploy_plan[vl]
             self.deploy_vl(sfc, vl, target)
-
+        
+        sfc.status_deploy()
         return True, f"deploy sfc success: {sfc.name}"

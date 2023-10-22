@@ -110,8 +110,8 @@ template = {
 }
 
 sfc_template = [
-    {'sfc1': {'node_in': 'node1', 'node_out': 'node3', 'vnf_list': ['vnf_type_1'], 'bandwidth': 100, 'bandwidth_used': 0, 'delay_limit': 10, 'delay_actual': 0}},
-    {'sfc2': {'node_in': 'node2', 'node_out': 'node4', 'vnf_list': ['vnf_type_2'], 'bandwidth': 100, 'bandwidth_used': 0, 'delay_limit': 15, 'delay_actual': 0}},
+    {'sfc1': {'node_in': 'node1', 'node_out': 'node3', 'vnf_list': ['vnf_type_1'], 'bandwidth': 100, 'bandwidth_used': 0, 'delay_limit': 50, 'delay_actual': 0}},
+    {'sfc2': {'node_in': 'node2', 'node_out': 'node4', 'vnf_list': ['vnf_type_2'], 'bandwidth': 100, 'bandwidth_used': 0, 'delay_limit': 55, 'delay_actual': 0}},
     {'sfc3': {'node_in': 'node3', 'node_out': 'node5', 'vnf_list': ['vnf_type_3'], 'bandwidth': 100, 'bandwidth_used': 0, 'delay_limit': 20, 'delay_actual': 0}}
 ]
 
