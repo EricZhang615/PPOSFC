@@ -80,18 +80,18 @@ class Network(nx.Graph):
         else:
             self.nodes[node_deployed]['vnf_dict'][sfc.name].remove(vnf)
 
-    def check_before_deploy_vl(self, sfc: SFC, vl, target_node=None, target_edge_list=None) -> int:
+    def check_before_deploy_vl(self, sfc: SFC, vl, target) -> int:
         # 确认vl正确
         assert vl in sfc.edges, 'vl not in sfc'
-        # 确认target_node 和 target_edge_list有且仅有一个不为空
-        assert (target_node is not None) ^ (target_edge_list is not None), 'target_node or/and target_edge_list incorrect'
+        # 确认target是str或list
+        assert isinstance(target, str) ^ isinstance(target, list), 'target type incorrect'
         delay = 0
-        if target_node is not None:
+        if isinstance(target, str):
             # 内部部署
-            assert target_node in self.nodes, 'target_node not in network'
+            assert target in self.nodes, 'target_node not in network'
         else:
             # 链路部署
-            for target_edge in target_edge_list:
+            for target_edge in target:
                 assert target_edge in self.edges, 'target_edge not in network'
                 # 判断有剩余带宽
                 bandwidth_used = self.edges[target_edge]['bandwidth_used']
@@ -100,19 +100,19 @@ class Network(nx.Graph):
         # 返回增加的delay
         return delay
 
-    def deploy_vl(self, sfc: SFC, vl, target_node=None, target_edge_list=None) -> None:
+    def deploy_vl(self, sfc: SFC, vl, target) -> None:
         # 内部部署模式
-        if target_node is not None:
+        if isinstance(target, str):
             # 将sfc和vl信息标记在物理节点上
-            if sfc.name in self.nodes[target_node]['vl_dict']:
-                self.nodes[target_node]['vl_dict'][sfc.name].append(vl)
+            if sfc.name in self.nodes[target]['vl_dict']:
+                self.nodes[target]['vl_dict'][sfc.name].append(vl)
             else:
-                self.nodes[target_node]['vl_dict'][sfc.name] = [vl]
+                self.nodes[target]['vl_dict'][sfc.name] = [vl]
             # 将target node 写入vl上
-            sfc.edges[vl]['node_deployed'] = target_node
+            sfc.edges[vl]['node_deployed'] = target
         else:
             # 链路部署模式
-            for target_edge in target_edge_list:
+            for target_edge in target:
                 # 将sfc和vl信息标记在物理链路上
                 if sfc.name in self.edges[target_edge]['vl_dict']:
                     self.edges[target_edge]['vl_dict'][sfc.name].append(vl)
@@ -145,3 +145,63 @@ class Network(nx.Graph):
                 else:
                     self.edges[edge_deployed]['vl_dict'][sfc.name].remove(vl)
             sfc.edges[vl]['edges_deployed'] = []
+
+    def deploy_sfc_by_vnf(self, sfc: SFC, target_node_dict) -> (bool, str):
+        '''
+        按vnf目标节点部署sfc；vnf根据输入目标物理节点部署，vl按节点间最短路径部署
+        target_node_dict: {'vnf1': 'node1', 'vnf2': 'node2', ...}
+        Parameters
+        ----------
+        target_node_dict
+        sfc
+
+        Returns
+        -------
+
+        '''
+        # 检查入参
+        assert len(target_node_dict) == sfc.number_of_nodes() - 2, 'target_node_dict length not match sfc number of vnfs'
+        # 生成链路部署方案
+        vl_deploy_plan = {}     # {('in', 'vnf1'): 'node1', ('vnf1', 'vnf2'): [('node1', 'node2'), ...], ...}
+        for vl in sfc.edges:
+            if vl[0] == 'in':
+                source = sfc.nodes['in']['node_in']
+                target = target_node_dict[vl[1]]
+            elif vl[1] == 'out':
+                source = target_node_dict[vl[0]]
+                target = sfc.nodes['out']['node_out']
+            else:
+                source = target_node_dict[vl[0]]
+                target = target_node_dict[vl[1]]
+            if source == target:
+                vl_deploy_plan[vl] = source
+            else:
+                path = nx.shortest_path(self, source, target, weight='transmission_delay')
+                vl_deploy_plan[vl] = [(path[i], path[i+1]) for i in range(len(path)-1)]
+
+        # 检查vnf部署是否可行
+        delay = 0
+        for vnf, target_node in target_node_dict.items():
+            try:
+                delay += self.check_before_deploy_vnf(sfc, vnf, target_node)
+            except AssertionError as e:
+                return False, f"deploy sfc failed -- vnf: {e}"
+
+        # 检查vl部署是否可行
+        for vl, target in vl_deploy_plan:
+            try:
+                delay += self.check_before_deploy_vl(sfc, vl, target)
+            except AssertionError as e:
+                return False, f"deploy sfc failed -- vl: {e}"
+
+        # 检查delay是否超时
+        if delay > sfc.delay_limit:
+            return False, f"deploy sfc failed -- delay: {delay} > {sfc.delay_limit}"
+
+        # 部署sfc
+        for vnf, target_node in target_node_dict.items():
+            self.deploy_vnf(sfc, vnf, target_node)
+        for vl, target in vl_deploy_plan.items():
+            self.deploy_vl(sfc, vl, target)
+
+        return True, f"deploy sfc success: {sfc.name}"
