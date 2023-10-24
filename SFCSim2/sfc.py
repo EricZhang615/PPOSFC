@@ -53,3 +53,26 @@ class SFC(nx.DiGraph):
 
     def status_idle(self):
         self.status = 'idle'
+
+    def update_delay_simple_model(self, network) -> (bool, str):
+        '''
+        按照动态时延简单模型更新sfc当前时延
+        动态延时简单模型：处理延时和资源占用率相关：
+        Returns
+        -------
+
+        '''
+        if not self.is_deployed():
+            return False, f"update delay failed -- sfc: {self.name} status: {self.status}"
+        delay_calc = 0
+        for vnf in self.nodes:
+            if vnf == 'in' or vnf == 'out':
+                continue
+            delay_calc += network.nodes[self.nodes[vnf]['node_deployed']]['processing_delay']
+        for vl in self.edges:
+            if not self.edges[vl]['edges_deployed']:
+                continue
+            for edge in self.edges[vl]['edges_deployed']:
+                delay_calc += network.edges[edge]['transmission_delay']
+        self.delay_actual = delay_calc
+        return True

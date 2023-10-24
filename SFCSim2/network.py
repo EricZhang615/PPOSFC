@@ -36,8 +36,26 @@ class Network(nx.Graph):
     def update_vnf_type(self, vnf_type_dict: Dict[str, VNFType]) -> None:
         self.vnf_type_dict = copy.deepcopy(vnf_type_dict)
 
+    def update_delay(self):
+        '''
+        按照动态时延简单模型更新物理节点当前时延
+        动态延时简单模型：处理延时和资源占用率相关：
+        '''
+        for node in self.nodes:
+            self.update_node_delay_simple_mode(node)
 
-    def check_before_deploy_vnf(self, sfc: SFC, vnf, target_node) -> int:
+    def update_node_delay_simple_mode(self, node):
+        self.nodes[node]['processing_delay'] = self.calc_node_delay_simple_mode(node)
+
+    def calc_node_delay_simple_mode(self, node, estimate=0.0):
+        cpu_ratio = (self.nodes[node]['resources_cpu_used'] + estimate) / self.nodes[node]['resources_cpu']
+        if cpu_ratio <= 0.5:
+            return self.nodes[node]['processing_delay_base']
+        else:
+            return self.nodes[node]['processing_delay_base'] * (cpu_ratio / (1 - cpu_ratio))
+
+
+    def check_before_deploy_vnf(self, sfc: SFC, vnf, target_node):
         # 判断vnf target node正确
         assert vnf in sfc.nodes, f'vnf {vnf} not in sfc'
         assert target_node in self.nodes, f'target_node {target_node} not in network'
@@ -48,8 +66,8 @@ class Network(nx.Graph):
         mem_limit = self.nodes[target_node]['resources_mem']
         mem_used = self.nodes[target_node]['resources_mem_used']
         assert mem_used + sfc.nodes[vnf]['vnf_type'].resources_mem_demand <= mem_limit, 'mem not enough'
-        # 返回增加的processing delay
-        return self.nodes[target_node]['processing_delay']
+        # # 返回增加的processing delay
+        # return self.nodes[target_node]['processing_delay']
         pass
 
     def deploy_vnf(self, sfc: SFC, vnf, target_node) -> None:
@@ -63,13 +81,13 @@ class Network(nx.Graph):
         self.nodes[target_node]['resources_mem_used'] += sfc.nodes[vnf]['vnf_type'].resources_mem_demand
         # 将target node 写入vnf上
         sfc.nodes[vnf]['node_deployed'] = target_node
-        # 将processing delay加在sfc上
-        sfc.delay_actual += self.nodes[target_node]['processing_delay']
+        # # 将processing delay加在sfc上
+        # sfc.delay_actual += self.nodes[target_node]['processing_delay']
 
     def undeploy_vnf(self, sfc: SFC, vnf):
         node_deployed = sfc.nodes[vnf]['node_deployed']
         # 去掉processing delay 和 node_deployed
-        sfc.delay_actual -= self.nodes[node_deployed]['processing_delay']
+        # sfc.delay_actual -= self.nodes[node_deployed]['processing_delay']
         sfc.nodes[vnf]['node_deployed'] = ''
         # 去掉vnf消耗的resources demand
         self.nodes[node_deployed]['resources_cpu_used'] -= sfc.nodes[vnf]['vnf_type'].resources_cpu_demand
@@ -122,8 +140,8 @@ class Network(nx.Graph):
                 sfc.edges[vl]['edges_deployed'].append(target_edge)
                 # 将vl消耗的bandwidth 写入物理链路上
                 self.edges[target_edge]['bandwidth_used'] += sfc.bandwidth
-                # 将物理链路的transmission delay 写入sfc上
-                sfc.delay_actual += self.edges[target_edge]['transmission_delay']
+                # # 将物理链路的transmission delay 写入sfc上
+                # sfc.delay_actual += self.edges[target_edge]['transmission_delay']
 
     def undeploy_vl(self, sfc: SFC, vl):
         if sfc.edges[vl]['node_deployed'] != '':
@@ -138,7 +156,7 @@ class Network(nx.Graph):
         else:
             for edge_deployed in sfc.edges[vl]['edges_deployed']:
                 self.edges[edge_deployed]['bandwidth_used'] -= sfc.bandwidth
-                sfc.delay_actual -= self.edges[edge_deployed]['transmission_delay']
+                # sfc.delay_actual -= self.edges[edge_deployed]['transmission_delay']
                 # 去掉vl信息
                 if len(self.edges[edge_deployed]['vl_dict'][sfc.name]) == 1:
                     self.edges[edge_deployed]['vl_dict'].pop(sfc.name)
@@ -155,15 +173,19 @@ class Network(nx.Graph):
                 self.undeploy_vnf(sfc, vnf)
         for vl in sfc.edges:
             self.undeploy_vl(sfc, vl)
+        # 更新网络延时
+        self.update_delay()
         sfc.status_idle()
+        sfc.delay_actual = 0
         return True, f"undeploy sfc success -- sfc: {sfc.name}"
 
-    def deploy_sfc_by_vnf(self, sfc: SFC, target_node_dict) -> (bool, str):
+    def deploy_sfc_by_vnf(self, sfc: SFC, target_node_dict, is_delay_limit_enable=True) -> (bool, str):
         '''
         按vnf目标节点部署sfc；vnf根据输入目标物理节点部署，vl按节点间最短路径部署
         target_node_dict: {'vnf1': 'node1', 'vnf2': 'node2', ...}
         Parameters
         ----------
+        is_delay_limit_enable
         target_node_dict
         sfc
 
@@ -195,14 +217,26 @@ class Network(nx.Graph):
                 vl_deploy_plan[vl] = [(path[i], path[i+1]) for i in range(len(path)-1)]
 
         # 检查vnf部署是否可行
-        delay = 0
-        for vnf, target_node in target_node_dict.items():
-            try:
-                delay += self.check_before_deploy_vnf(sfc, vnf, target_node)
-            except AssertionError as e:
-                return False, f"deploy sfc failed -- vnf: {e}"
+        node_cpu_used_tmp = {}
+        if is_delay_limit_enable:
+            for vnf, target_node in target_node_dict.items():
+                try:
+                    self.check_before_deploy_vnf(sfc, vnf, target_node)
+                except AssertionError as e:
+                    return False, f"deploy sfc failed -- vnf: {e}"
+                if target_node in node_cpu_used_tmp:
+                    node_cpu_used_tmp[target_node] += sfc.nodes[vnf]['vnf_type'].resources_cpu_demand
+                else:
+                    node_cpu_used_tmp[target_node] = sfc.nodes[vnf]['vnf_type'].resources_cpu_demand
+        else:
+            for vnf, target_node in target_node_dict.items():
+                try:
+                    self.check_before_deploy_vnf(sfc, vnf, target_node)
+                except AssertionError as e:
+                    return False, f"deploy sfc failed -- vnf: {e}"
 
         # 检查vl部署是否可行
+        delay = 0
         for vl in vl_deploy_plan:
             target = vl_deploy_plan[vl]
             try:
@@ -211,8 +245,11 @@ class Network(nx.Graph):
                 return False, f"deploy sfc failed -- vl: {e}"
 
         # 检查delay是否超时
-        if delay > sfc.delay_limit:
-            return False, f"deploy sfc failed -- delay: {delay} > {sfc.delay_limit}"
+        if is_delay_limit_enable:
+            for vnf, target_node in target_node_dict:
+                delay += self.calc_node_delay_simple_mode(target_node, estimate=node_cpu_used_tmp[target_node])
+            if delay > sfc.delay_limit:
+                return False, f"deploy sfc failed -- delay: {delay} > {sfc.delay_limit}"
 
         # 部署sfc
         for vnf, target_node in target_node_dict.items():
@@ -220,6 +257,14 @@ class Network(nx.Graph):
         for vl in vl_deploy_plan:
             target = vl_deploy_plan[vl]
             self.deploy_vl(sfc, vl, target)
-        
         sfc.status_deploy()
+
+        # 更新网络延时
+        self.update_delay()
+
+        # 更新sfc延时
+        r = sfc.update_delay_simple_model(self)
+        if not r:
+            print(r)
+
         return True, f"deploy sfc success: {sfc.name}"

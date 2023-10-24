@@ -8,6 +8,7 @@ template = {
             'resources_mem_used': 0,
             'load_cpu': 0.0,
             'load_mem': 0.0,
+            'processing_delay_base': 10,
             'processing_delay': 10,
             'vnf_dict': {},
             'vl_dict': {}
@@ -19,6 +20,7 @@ template = {
             'resources_mem_used': 0,
             'load_cpu': 0.0,
             'load_mem': 0.0,
+            'processing_delay_base': 10,
             'processing_delay': 10,
             'vnf_dict': {},
             'vl_dict': {}
@@ -30,6 +32,7 @@ template = {
             'resources_mem_used': 0,
             'load_cpu': 0.0,
             'load_mem': 0.0,
+            'processing_delay_base': 10,
             'processing_delay': 10,
             'vnf_dict': {},
             'vl_dict': {}
@@ -41,6 +44,7 @@ template = {
             'resources_mem_used': 0,
             'load_cpu': 0.0,
             'load_mem': 0.0,
+            'processing_delay_base': 10,
             'processing_delay': 10,
             'vnf_dict': {},
             'vl_dict': {}
@@ -52,6 +56,7 @@ template = {
             'resources_mem_used': 0,
             'load_cpu': 0.0,
             'load_mem': 0.0,
+            'processing_delay_base': 10,
             'processing_delay': 10,
             'vnf_dict': {},
             'vl_dict': {}
@@ -63,6 +68,7 @@ template = {
             'resources_mem_used': 0,
             'load_cpu': 0.0,
             'load_mem': 0.0,
+            'processing_delay_base': 10,
             'processing_delay': 10,
             'vnf_dict': {},
             'vl_dict': {}
@@ -116,7 +122,7 @@ sfc_template = [
 ]
 
 vnf_type_template = [
-    {'vnf_type_1': {'resources_cpu_demand': 4, 'resources_mem_demand': 2}},
+    {'vnf_type_1': {'resources_cpu_demand': 60, 'resources_mem_demand': 2}},
     {'vnf_type_2': {'resources_cpu_demand': 2, 'resources_mem_demand': 4}},
     {'vnf_type_3': {'resources_cpu_demand': 4, 'resources_mem_demand': 4}}
 ]
