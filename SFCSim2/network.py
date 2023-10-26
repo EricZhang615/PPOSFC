@@ -36,6 +36,23 @@ class Network(nx.Graph):
     def update_vnf_type(self, vnf_type_dict: Dict[str, VNFType]) -> None:
         self.vnf_type_dict = copy.deepcopy(vnf_type_dict)
 
+    def reset(self):
+        for node in self.nodes:
+            self.nodes[node].update({
+                'resources_cpu_used': 0,
+                'resources_mem_used': 0,
+                'load_cpu': 0.0,
+                'load_mem': 0.0,
+                'processing_delay': 0,
+                'vnf_dict': {},
+                'vl_dict': {}
+            })
+        for edge in self.edges:
+            self.edges[edge].update({
+                'bandwidth_used': 0,
+                'vl_dict': {}
+            })
+
     def update_delay(self):
         '''
         按照动态时延简单模型更新物理节点当前时延
@@ -51,6 +68,8 @@ class Network(nx.Graph):
         cpu_ratio = (self.nodes[node]['resources_cpu_used'] + estimate) / self.nodes[node]['resources_cpu']
         if cpu_ratio <= 0.5:
             return self.nodes[node]['processing_delay_base']
+        elif cpu_ratio > 0.95:
+            return self.nodes[node]['processing_delay_base'] * 20
         else:
             return self.nodes[node]['processing_delay_base'] * (cpu_ratio / (1 - cpu_ratio))
 
