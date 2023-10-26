@@ -5,6 +5,8 @@ from SFCSim2.vnf import VNFType
 from SFCSim2.sfc import SFC
 from nsfnet_template import init
 from sfc_deploy_simple_mode_env import SFCDeploySimpleModeEnv
+
+from stable_baselines3 import PPO
 from stable_baselines3.common.env_checker import check_env
 
 template, vnf_type_template, sfc_template = init()
@@ -16,3 +18,7 @@ network = Network(template=template, vnf_type_dict=vnf_type_dict)
 env = SFCDeploySimpleModeEnv(network, vnf_type_dict, sfc_list)
 
 check_env(env, warn=True)
+
+model = PPO('MultiInputPolicy', env, verbose=2)
+model.learn(total_timesteps=10000)
+model.save("model/test")

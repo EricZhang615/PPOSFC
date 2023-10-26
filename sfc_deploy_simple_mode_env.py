@@ -24,10 +24,12 @@ class SFCDeploySimpleModeEnv(gym.Env):
         # 观测空间 节点数*3属性（cpu mem delay）+链路数*1属性（bandwidth）+节点数*1（sfc入出节点01编码）+vnf需求2*3+sfc带宽
         self.observation_space = spaces.Dict(
             {
-                'nodes': spaces.Box(low=0, high=1, shape=(self.num_nodes, 3)),
-                'edges': spaces.Box(low=0, high=1, shape=(self.num_edges, 1)),
+                'nodes_cpu': spaces.Box(low=0, high=1, shape=(self.num_nodes, )),
+                'nodes_mem': spaces.Box(low=0, high=1, shape=(self.num_nodes, )),
+                'nodes_delay': spaces.Box(low=0, high=1, shape=(self.num_nodes, )),
+                'edges': spaces.Box(low=0, high=1, shape=(self.num_edges, )),
                 'sfc_in_out_nodes': spaces.MultiBinary(self.num_nodes),
-                'sfc_request_vnfs': spaces.Box(low=0, high=1, shape=(2, 3)),
+                'sfc_request_vnfs': spaces.Box(low=0, high=1, shape=(3*2, )),
                 'sfc_bandwidth': spaces.Box(low=0, high=1, shape=(1,))
             }
         )
@@ -55,18 +57,19 @@ class SFCDeploySimpleModeEnv(gym.Env):
         for vnf in self.sfc_requests[self.sfc_request_mark].nodes:
             if vnf == 'in' or vnf == 'out':
                 continue
-            tmp = [self.sfc_requests[self.sfc_request_mark].nodes[vnf]['vnf_type'].resources_cpu_demand / 100,
-                   self.sfc_requests[self.sfc_request_mark].nodes[vnf]['vnf_type'].resources_mem_demand / 100]
-            sfc_request_vnfs.append(tmp)
+            sfc_request_vnfs.append(self.sfc_requests[self.sfc_request_mark].nodes[vnf]['vnf_type'].resources_cpu_demand / 100)
+            sfc_request_vnfs.append(self.sfc_requests[self.sfc_request_mark].nodes[vnf]['vnf_type'].resources_mem_demand / 100)
 
-        sfc_bandwidth = self.sfc_requests[self.sfc_request_mark].bandwidth / 500
+        sfc_bandwidth = [ self.sfc_requests[self.sfc_request_mark].bandwidth / 500 ]
 
         return {
-            'nodes': np.array([cpu, mem, delay]),
-            'edges': np.array(bw),
-            'sfc_in_out_nodes': np.array(sfc_in_out_nodes),
-            'sfc_request_vnfs': np.array(sfc_request_vnfs),
-            'sfc_bandwidth': sfc_bandwidth
+            'nodes_cpu': np.array(cpu).astype(np.float32),
+            'nodes_mem': np.array(mem).astype(np.float32),
+            'nodes_delay': np.array(delay).astype(np.float32),
+            'edges': np.array(bw).astype(np.float32),
+            'sfc_in_out_nodes': np.array(sfc_in_out_nodes).astype(np.int8),
+            'sfc_request_vnfs': np.array(sfc_request_vnfs).astype(np.float32),
+            'sfc_bandwidth': np.array(sfc_bandwidth).astype(np.float32)
         }
 
     def reset(
@@ -103,16 +106,20 @@ class SFCDeploySimpleModeEnv(gym.Env):
         for i in range(len(action)):
             target_node_dict['vnf' + str(i + 1)] = list(self.network.nodes)[action[i]]
         # 部署sfc
-        err, msg =  self.network.deploy_sfc_by_vnf(self.sfc_requests[self.sfc_request_mark], target_node_dict, is_delay_limit_enable=False)
-        if err is False:
-            print(msg)
+        sfc_req = copy.deepcopy(self.sfc_requests[self.sfc_request_mark])
+        err, msg =  self.network.deploy_sfc_by_vnf(sfc_req, target_node_dict, is_delay_limit_enable=False)
+        # if err is False:
+        #     print(msg)
 
-        self.sfc_handled.append(copy.deepcopy(self.sfc_requests[self.sfc_request_mark]))
+        self.sfc_handled.append(sfc_req)
         # 更新所有已部署sfc延时
         for sfc in self.sfc_handled:
-            sfc.update_delay_simple_model(self.network)
+            if sfc.is_deployed():
+                err, msg = sfc.update_delay_simple_model(self.network)
+            if err is False:
+                print(msg)
         # 计算reward
-        if self.sfc_request_mark == len(self.sfc_requests):
+        if self.sfc_request_mark == len(self.sfc_requests) - 1:
             terminated = True
             reward = self._get_reward()
         else:
@@ -120,5 +127,5 @@ class SFCDeploySimpleModeEnv(gym.Env):
 
         observation = self._get_obs()
 
-        return observation, reward, terminated, {}
+        return observation, reward, terminated, False, {}
 

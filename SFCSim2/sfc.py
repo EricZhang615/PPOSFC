@@ -75,4 +75,4 @@ class SFC(nx.DiGraph):
             for edge in self.edges[vl]['edges_deployed']:
                 delay_calc += network.edges[edge]['transmission_delay']
         self.delay_actual = delay_calc
-        return True
+        return True, f"update delay success -- sfc: {self.name} delay: {self.delay_actual}"

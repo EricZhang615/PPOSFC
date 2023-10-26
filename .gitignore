@@ -1,3 +1,4 @@
 /pposfc/
 .idea/
 *.pyc
+/model/
