@@ -92,10 +92,23 @@ class SFCDeploySimpleModeEnv(gym.Env):
 
         return observation, {}
 
-    def _get_reward(self):
+    def _get_reward(self, sfc_is_deployed: bool):
         reward = 0.0
+        deployed = 0
+        idle = 0
+        total = len(self.sfc_requests)
+        total_delay = 0.0
         for sfc in self.sfc_handled:
-            reward -= sfc.delay_actual
+            if sfc.is_deployed():
+                deployed += 1
+                total_delay += sfc.delay_actual
+        avg_delay = total_delay / deployed
+        if sfc_is_deployed:
+            reward = 1.6 * ((self.sfc_request_mark+1) / total) - avg_delay / 1000
+        else:
+            reward = -1 * (1 - self.sfc_request_mark / total)
+        if self.sfc_request_mark == len(self.sfc_requests) - 1:
+            print('deployed: ', deployed, 'avg_delay: ', avg_delay, 'reward: ', reward)
         return reward
 
     def step(self, action):
@@ -110,7 +123,6 @@ class SFCDeploySimpleModeEnv(gym.Env):
         err, msg =  self.network.deploy_sfc_by_vnf(sfc_req, target_node_dict, is_delay_limit_enable=False)
         # if err is False:
         #     print(msg)
-
         self.sfc_handled.append(sfc_req)
         # 更新所有已部署sfc延时
         for sfc in self.sfc_handled:
@@ -119,9 +131,9 @@ class SFCDeploySimpleModeEnv(gym.Env):
             if err is False:
                 print(msg)
         # 计算reward
+        reward = self._get_reward(self.sfc_handled[-1].is_deployed())
         if self.sfc_request_mark == len(self.sfc_requests) - 1:
             terminated = True
-            reward = self._get_reward()
         else:
             self.sfc_request_mark += 1
 
