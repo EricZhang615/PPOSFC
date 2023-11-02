@@ -7,12 +7,13 @@ import numpy as np
 from gymnasium import spaces
 from gymnasium.core import ObsType
 from stable_baselines3.common.callbacks import BaseCallback
+from torch.utils.tensorboard import SummaryWriter
 
 from SFCSim2.network import Network
 
 
 class SFCDeploySimpleModeEnv(gym.Env):
-    def __init__(self, network: Network, vnf_types, sfc_requests, deploy_mode='vnf'):
+    def __init__(self, network: Network, vnf_types, sfc_requests, deploy_mode='vnf', writer: SummaryWriter = None):
         super().__init__()
         self._deploy_mode = deploy_mode
         self.network = network
@@ -24,6 +25,7 @@ class SFCDeploySimpleModeEnv(gym.Env):
         self.sfc_handled = []
         self.num_deployed = 0
         self.delay_mean = 0.0
+        self._writer = writer
 
         # 观测空间 节点数*3属性（cpu mem delay）+链路数*1属性（bandwidth）+节点数*1（sfc入出节点01编码）+vnf需求2*3+sfc带宽
         self.observation_space = spaces.Dict(
@@ -122,6 +124,9 @@ class SFCDeploySimpleModeEnv(gym.Env):
         if self.sfc_request_mark == len(self.sfc_requests) - 1:
             reward = 500 - avg_delay
             print('deployed: ', deployed, 'avg_delay: ', avg_delay, 'reward: ', reward)
+            self._writer.add_scalar('debug/reward', reward)
+            self._writer.add_scalar('debug/avg_delay', avg_delay)
+            self._writer.add_scalar('debug/deployed', deployed)
         return reward
 
     def step(self, action):
