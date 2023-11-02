@@ -198,6 +198,31 @@ class Network(nx.Graph):
         sfc.delay_actual = 0
         return True, f"undeploy sfc success -- sfc: {sfc.name}"
 
+    def deploy_sfc_by_sp(self, sfc: SFC, k, is_delay_limit_enable=True):
+        source = sfc.nodes['in']['node_in']
+        target = sfc.nodes['out']['node_out']
+        num_remain_vnf = len(list(sfc.nodes)) - 2
+        paths = nx.shortest_simple_paths(self, source, target, weight='transmission_delay')
+        path = []
+        for i, path in enumerate(paths):
+            if i == k:
+                break
+        if not path:
+            print("k sp empty")
+            return False, f"deploy sfc failed -- k sp empty"
+        del i, paths
+        target_node_dict = {}
+        for vnf in sfc.nodes:
+            if vnf != 'in' and vnf != 'out':
+                if len(path) >= num_remain_vnf:
+                    target_node_dict[vnf] = path.pop(0)
+                    num_remain_vnf -= 1
+                else:
+                    target_node_dict[vnf] = path[0]
+                    num_remain_vnf -= 1
+        return self.deploy_sfc_by_vnf(sfc, target_node_dict, is_delay_limit_enable)
+
+
     def deploy_sfc_by_vnf(self, sfc: SFC, target_node_dict, is_delay_limit_enable=True) -> (bool, str):
         '''
         按vnf目标节点部署sfc；vnf根据输入目标物理节点部署，vl按节点间最短路径部署

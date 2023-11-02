@@ -12,8 +12,9 @@ from SFCSim2.network import Network
 
 
 class SFCDeploySimpleModeEnv(gym.Env):
-    def __init__(self, network: Network, vnf_types, sfc_requests):
+    def __init__(self, network: Network, vnf_types, sfc_requests, deploy_mode='vnf'):
         super().__init__()
+        self._deploy_mode = deploy_mode
         self.network = network
         self.num_nodes = len(self.network.nodes)
         self.num_edges = len(self.network.edges)
@@ -30,14 +31,18 @@ class SFCDeploySimpleModeEnv(gym.Env):
                 'nodes_cpu': spaces.Box(low=0, high=1, shape=(self.num_nodes, )),
                 'nodes_mem': spaces.Box(low=0, high=1, shape=(self.num_nodes, )),
                 'nodes_delay': spaces.Box(low=0, high=1, shape=(self.num_nodes, )),
-                'edges': spaces.Box(low=0, high=1, shape=(self.num_edges, )),
+                # 'edges': spaces.Box(low=0, high=1, shape=(self.num_edges, )),
                 'sfc_in_out_nodes': spaces.MultiBinary(self.num_nodes),
                 'sfc_request_vnfs': spaces.Box(low=0, high=1, shape=(3*2, )),
-                'sfc_bandwidth': spaces.Box(low=0, high=1, shape=(1,))
+                # 'sfc_bandwidth': spaces.Box(low=0, high=1, shape=(1,))
             }
         )
-        # 动作空间 节点数^3
-        self.action_space = spaces.MultiDiscrete([len(self.network.nodes), len(self.network.nodes), len(self.network.nodes)])
+        if deploy_mode == 'vnf':
+            # 动作空间 节点数^3
+            self.action_space = spaces.MultiDiscrete([len(self.network.nodes), len(self.network.nodes), len(self.network.nodes)])
+        elif deploy_mode == 'sp':
+            # 动作空间 前k最短路径
+            self.action_space = spaces.Discrete(5)
 
     def _get_obs(self):
         cpu = []
@@ -69,10 +74,10 @@ class SFCDeploySimpleModeEnv(gym.Env):
             'nodes_cpu': np.array(cpu).astype(np.float32),
             'nodes_mem': np.array(mem).astype(np.float32),
             'nodes_delay': np.array(delay).astype(np.float32),
-            'edges': np.array(bw).astype(np.float32),
+            # 'edges': np.array(bw).astype(np.float32),
             'sfc_in_out_nodes': np.array(sfc_in_out_nodes).astype(np.int8),
             'sfc_request_vnfs': np.array(sfc_request_vnfs).astype(np.float32),
-            'sfc_bandwidth': np.array(sfc_bandwidth).astype(np.float32)
+            # 'sfc_bandwidth': np.array(sfc_bandwidth).astype(np.float32)
         }
 
     def reset(
@@ -110,34 +115,42 @@ class SFCDeploySimpleModeEnv(gym.Env):
         self.delay_mean = avg_delay
         if sfc_is_deployed:
             # reward = 1.6 * ((self.sfc_request_mark+1) / total) - avg_delay / 1000
-            reward = 1
+            reward = 1 - self.sfc_handled[-1].delay_actual / 500
         else:
             # reward = -1 * (1 - self.sfc_request_mark / total)
             reward = -1
         if self.sfc_request_mark == len(self.sfc_requests) - 1:
-            reward = deployed
+            reward = 500 - avg_delay
             print('deployed: ', deployed, 'avg_delay: ', avg_delay, 'reward: ', reward)
         return reward
 
     def step(self, action):
         reward = 0.0
         terminated = False
-        # 将动作转换为 target_node_dict
-        target_node_dict = {}
-        for i in range(len(action)):
-            target_node_dict['vnf' + str(i + 1)] = list(self.network.nodes)[action[i]]
-        # 部署sfc
-        sfc_req = copy.deepcopy(self.sfc_requests[self.sfc_request_mark])
-        err, msg =  self.network.deploy_sfc_by_vnf(sfc_req, target_node_dict, is_delay_limit_enable=False)
-        # if err is False:
-        #     print(msg)
-        self.sfc_handled.append(sfc_req)
+        if self._deploy_mode == 'vnf':
+            # 将动作转换为 target_node_dict
+            target_node_dict = {}
+            for i in range(len(action)):
+                target_node_dict['vnf' + str(i + 1)] = list(self.network.nodes)[action[i]]
+            # 部署sfc
+            sfc_req = copy.deepcopy(self.sfc_requests[self.sfc_request_mark])
+            err, msg =  self.network.deploy_sfc_by_vnf(sfc_req, target_node_dict, is_delay_limit_enable=False)
+            # if err is False:
+            #     print(msg)
+            self.sfc_handled.append(sfc_req)
+        elif self._deploy_mode == 'sp':
+            # 部署sfc
+            sfc_req = copy.deepcopy(self.sfc_requests[self.sfc_request_mark])
+            err, msg =  self.network.deploy_sfc_by_sp(sfc_req, action, is_delay_limit_enable=False)
+            self.sfc_handled.append(sfc_req)
+
         # 更新所有已部署sfc延时
         for sfc in self.sfc_handled:
             if sfc.is_deployed():
                 err, msg = sfc.update_delay_simple_model(self.network)
-            if err is False:
-                print(msg)
+                if err is False:
+                    print(msg)
+
         # 计算reward
         reward = self._get_reward(self.sfc_handled[-1].is_deployed())
         if self.sfc_request_mark == len(self.sfc_requests) - 1:
