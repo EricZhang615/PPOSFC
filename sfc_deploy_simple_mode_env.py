@@ -6,6 +6,7 @@ import gymnasium as gym
 import numpy as np
 from gymnasium import spaces
 from gymnasium.core import ObsType
+from stable_baselines3.common.callbacks import BaseCallback
 
 from SFCSim2.network import Network
 
@@ -20,6 +21,8 @@ class SFCDeploySimpleModeEnv(gym.Env):
         self.sfc_requests = sfc_requests
         self.sfc_request_mark = 0
         self.sfc_handled = []
+        self.num_deployed = 0
+        self.delay_mean = 0.0
 
         # 观测空间 节点数*3属性（cpu mem delay）+链路数*1属性（bandwidth）+节点数*1（sfc入出节点01编码）+vnf需求2*3+sfc带宽
         self.observation_space = spaces.Dict(
@@ -86,7 +89,7 @@ class SFCDeploySimpleModeEnv(gym.Env):
         self.sfc_handled = []
 
         # 打乱sfc请求
-        random.shuffle(self.sfc_requests)
+        # random.shuffle(self.sfc_requests)
 
         observation = self._get_obs()
 
@@ -103,11 +106,16 @@ class SFCDeploySimpleModeEnv(gym.Env):
                 deployed += 1
                 total_delay += sfc.delay_actual
         avg_delay = total_delay / deployed
+        self.num_deployed = deployed
+        self.delay_mean = avg_delay
         if sfc_is_deployed:
-            reward = 1.6 * ((self.sfc_request_mark+1) / total) - avg_delay / 1000
+            # reward = 1.6 * ((self.sfc_request_mark+1) / total) - avg_delay / 1000
+            reward = 1
         else:
-            reward = -1 * (1 - self.sfc_request_mark / total)
+            # reward = -1 * (1 - self.sfc_request_mark / total)
+            reward = -1
         if self.sfc_request_mark == len(self.sfc_requests) - 1:
+            reward = deployed
             print('deployed: ', deployed, 'avg_delay: ', avg_delay, 'reward: ', reward)
         return reward
 
@@ -141,3 +149,15 @@ class SFCDeploySimpleModeEnv(gym.Env):
 
         return observation, reward, terminated, False, {}
 
+
+class TensorboardCallback(BaseCallback):
+    def __init__(self, verbose=0):
+        super().__init__(verbose)
+        self.training_env = None
+
+    def _on_step(self) -> bool:
+        num_deployed = self.training_env.envs[0].env.num_deployed
+        delay_mean = self.training_env.envs[0].env.delay_mean
+        self.logger.record('num_deployed', num_deployed)
+        self.logger.record('delay_mean', delay_mean)
+        return True

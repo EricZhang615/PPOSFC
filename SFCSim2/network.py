@@ -43,7 +43,7 @@ class Network(nx.Graph):
                 'resources_mem_used': 0,
                 'load_cpu': 0.0,
                 'load_mem': 0.0,
-                'processing_delay': 0,
+                'processing_delay': 10,
                 'vnf_dict': {},
                 'vl_dict': {}
             })
