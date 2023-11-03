@@ -124,9 +124,10 @@ class SFCDeploySimpleModeEnv(gym.Env):
         if self.sfc_request_mark == len(self.sfc_requests) - 1:
             reward = 500 - avg_delay
             print('deployed: ', deployed, 'avg_delay: ', avg_delay, 'reward: ', reward)
-            self._writer.add_scalar('debug/reward', reward)
-            self._writer.add_scalar('debug/avg_delay', avg_delay)
-            self._writer.add_scalar('debug/deployed', deployed)
+            if self._writer is not None:
+                self._writer.add_scalar('debug/reward', reward)
+                self._writer.add_scalar('debug/avg_delay', avg_delay)
+                self._writer.add_scalar('debug/deployed', deployed)
         return reward
 
     def step(self, action):

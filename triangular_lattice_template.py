@@ -29,8 +29,8 @@ def generate_attrs():
             'resources_mem_used': 0,
             'load_cpu': 0.0,
             'load_mem': 0.0,
-            'processing_delay_base': 10,
-            'processing_delay': 10,
+            'processing_delay_base': 5,
+            'processing_delay': 5,
             'vnf_dict': {},
             'vl_dict': {}
         }
@@ -38,7 +38,7 @@ def generate_attrs():
         template['edge_attrs'][edge] = {
             'bandwidth': 100000,
             'bandwidth_used': 0,
-            'transmission_delay': 5,
+            'transmission_delay': 20,
             'vl_dict': {}
         }
 

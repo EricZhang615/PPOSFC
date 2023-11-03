@@ -22,7 +22,7 @@ sfc_list = [ SFC(sfc_info, vnf_type_dict) for sfc_info in sfc_template ]
 network = Network(template=template, vnf_type_dict=vnf_type_dict)
 
 current_time = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-writer = SummaryWriter("model/tensorboard_log/"+current_time+"/")
+writer = SummaryWriter("model/tensorboard_log/"+current_time+"/time_monitor")
 env = SFCDeploySimpleModeEnv(network, vnf_type_dict, sfc_list, deploy_mode='sp', writer=writer)
 
 # check_env(env, warn=True)
@@ -37,13 +37,13 @@ model = PPO('MultiInputPolicy', env, policy_kwargs=policy_kwargs, verbose=2, ten
             batch_size=256,
             # clip_range=0.5,
             # clip_range_vf=0.5,
-            ent_coef=0.01,
+            ent_coef=0.02,
             stats_window_size=10,)
 # model = A2C('MultiInputPolicy', env, policy_kwargs=policy_kwargs, verbose=2, tensorboard_log="model/tensorboard_log/"+current_time+"/",
 #             device='cpu',
 #             learning_rate=0.0001,
 #             stats_window_size=10,)
-model.learn(total_timesteps=150*60*60*3, callback=checkpoint_call_back)
+model.learn(total_timesteps=150*60*60*10, callback=checkpoint_call_back)
 # vec_env = model.get_env()
 # obs = vec_env.reset()
 # total_reward = 0
