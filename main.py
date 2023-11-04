@@ -12,7 +12,7 @@ from triangular_lattice_template import init
 from sfc_deploy_simple_mode_env import SFCDeploySimpleModeEnv
 
 from stable_baselines3 import PPO, A2C
-from stable_baselines3.common.callbacks import CheckpointCallback, EveryNTimesteps
+from stable_baselines3.common.callbacks import CheckpointCallback, EvalCallback
 from stable_baselines3.common.env_checker import check_env
 
 template, vnf_type_template, sfc_template = init()
@@ -23,11 +23,13 @@ network = Network(template=template, vnf_type_dict=vnf_type_dict)
 
 current_time = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
 writer = SummaryWriter("model/tensorboard_log/"+current_time+"/time_monitor")
-env = SFCDeploySimpleModeEnv(network, vnf_type_dict, sfc_list, deploy_mode='sp', writer=writer)
-
+env = SFCDeploySimpleModeEnv(network, vnf_type_dict, sfc_list, deploy_mode='vnf', writer=writer)
+eval_env = SFCDeploySimpleModeEnv(network, vnf_type_dict, sfc_list, deploy_mode='vnf')
 # check_env(env, warn=True)
 
-checkpoint_call_back = CheckpointCallback(save_freq=10000, save_path='model/sfc_deploy_simple_mode/'+current_time+'/', name_prefix='model')
+checkpoint_call_back = CheckpointCallback(save_freq=200_000, save_path='model/sfc_deploy_simple_mode/'+current_time+'/', name_prefix='model')
+eval_callback = EvalCallback(eval_env, best_model_save_path='model/sfc_deploy_simple_mode/'+current_time+'/', log_path='model/sfc_deploy_simple_mode/'+current_time+'/',
+                             eval_freq=10_000, n_eval_episodes=3, deterministic=True)
 
 policy_kwargs = dict(activation_fn=th.nn.ReLU,
                      net_arch=dict(pi=[512, 512, 512, 512], vf=[512, 512, 512, 512]))
@@ -43,7 +45,7 @@ model = PPO('MultiInputPolicy', env, policy_kwargs=policy_kwargs, verbose=2, ten
 #             device='cpu',
 #             learning_rate=0.0001,
 #             stats_window_size=10,)
-model.learn(total_timesteps=150*60*60*10, callback=checkpoint_call_back)
+model.learn(total_timesteps=150*60*60*10, callback=[checkpoint_call_back, eval_callback])
 # vec_env = model.get_env()
 # obs = vec_env.reset()
 # total_reward = 0

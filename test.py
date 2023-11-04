@@ -22,14 +22,14 @@ vnf_type_dict.update({list(vnf_type_info.keys())[0]: VNFType(vnf_type_info) for 
 sfc_list = [ SFC(sfc_info, vnf_type_dict) for sfc_info in sfc_template ]
 network = Network(template=template, vnf_type_dict=vnf_type_dict)
 
-env = SFCDeploySimpleModeEnv(network, vnf_type_dict, sfc_list, deploy_mode='sp')
+env = SFCDeploySimpleModeEnv(network, vnf_type_dict, sfc_list, deploy_mode='vnf')
 
 env.reset()
 total_reward = 0
 ep = 0
 while ep!=10:
-    # action = np.random.randint(0, 5)
-    action = 1
+    action = np.random.randint(0, 35, 3)
+    # action = 1
     obs, rewards, terminate, trunc, info = env.step(action)
     total_reward += rewards
     if terminate:
