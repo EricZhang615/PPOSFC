@@ -44,9 +44,9 @@ if __name__ == '__main__':
     eval_env = make_vec_env('SFCDeploySimpleModeEnv-v0', n_envs=1, env_kwargs=env_kwargs, vec_env_cls=SubprocVecEnv, seed=np.random.randint(0, 2**31 - 1) )
     # check_env(env, warn=True)
 
-    checkpoint_call_back = CheckpointCallback(save_freq=5_000, save_path='model/sfc_deploy_simple_mode/'+current_time+'/', name_prefix='model')
+    checkpoint_call_back = CheckpointCallback(save_freq=10_000, save_path='model/sfc_deploy_simple_mode/'+current_time+'/', name_prefix='model')
     eval_callback = EvalCallback(eval_env, best_model_save_path='model/sfc_deploy_simple_mode/'+current_time+'/', log_path='model/sfc_deploy_simple_mode/'+current_time+'/',
-                                 eval_freq=500, n_eval_episodes=3, deterministic=True)
+                                 eval_freq=2_000, n_eval_episodes=3, deterministic=True)
 
     policy_kwargs = dict(activation_fn=th.nn.ReLU,
                          net_arch=dict(pi=[512, 512, 512, 512], vf=[512, 512, 512, 512]))

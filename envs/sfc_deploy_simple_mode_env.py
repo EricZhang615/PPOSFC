@@ -123,7 +123,11 @@ class SFCDeploySimpleModeEnv(gym.Env):
                 reward = 1 - self.sfc_handled[-1].delay_actual / 500
         else:
             # reward = -1 * (1 - self.sfc_request_mark / total)
-            reward = -1
+            if self.sfc_request_mark <= 310:
+                reward = -1
+            else:
+                reward = 0
+            # reward = -1
         if self.sfc_request_mark == len(self.sfc_requests) - 1:
             reward = 500 - avg_delay
             # print('deployed: ', deployed, 'avg_delay: ', avg_delay, 'reward: ', reward)
