@@ -55,7 +55,7 @@ class SFCDeploySimpleModeEnv(gym.Env):
             mem.append(self.network.nodes[node]['resources_mem_used'] / self.network.nodes[node]['resources_mem'])
             delay.append(self.network.nodes[node]['processing_delay'] / (self.network.nodes[node]['processing_delay_base'] * 20))
 
-        bw = [ self.network.edges[edge]['bandwidth_used'] / self.network.edges[edge]['bandwidth'] for edge in self.network.edges]
+        # bw = [ self.network.edges[edge]['bandwidth_used'] / self.network.edges[edge]['bandwidth'] for edge in self.network.edges]
 
         sfc_in_out_nodes = [ 0 for _ in range(self.num_nodes)]
         list_of_nodes = list(self.network.nodes)
@@ -70,7 +70,7 @@ class SFCDeploySimpleModeEnv(gym.Env):
             sfc_request_vnfs.append(self.sfc_requests[self.sfc_request_mark].nodes[vnf]['vnf_type'].resources_cpu_demand / 100)
             sfc_request_vnfs.append(self.sfc_requests[self.sfc_request_mark].nodes[vnf]['vnf_type'].resources_mem_demand / 100)
 
-        sfc_bandwidth = [ self.sfc_requests[self.sfc_request_mark].bandwidth / 500 ]
+        # sfc_bandwidth = [ self.sfc_requests[self.sfc_request_mark].bandwidth / 500 ]
 
         return {
             'nodes_cpu': np.array(cpu).astype(np.float32),
@@ -117,7 +117,10 @@ class SFCDeploySimpleModeEnv(gym.Env):
         self.delay_mean = avg_delay
         if sfc_is_deployed:
             # reward = 1.6 * ((self.sfc_request_mark+1) / total) - avg_delay / 1000
-            reward = 1 - self.sfc_handled[-1].delay_actual / 500
+            if self.sfc_request_mark > 310:
+                reward = 1.5
+            else:
+                reward = 1 - self.sfc_handled[-1].delay_actual / 500
         else:
             # reward = -1 * (1 - self.sfc_request_mark / total)
             reward = -1

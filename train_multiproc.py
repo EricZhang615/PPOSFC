@@ -10,7 +10,7 @@ from SFCSim2.network import Network
 from SFCSim2.vnf import VNFType
 from SFCSim2.sfc import SFC
 # from nsfnet_template import init
-from triangular_lattice_template import init
+from triangular_lattice_template_600 import init
 import envs
 
 from stable_baselines3 import PPO
@@ -26,6 +26,7 @@ if __name__ == '__main__':
     network = Network(template=template, vnf_type_dict=vnf_type_dict)
 
     current_time = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+    # current_time = '20231106-014601'
     writer = SummaryWriter("model/tensorboard_log/"+current_time+"/time_monitor")
 
     env_kwargs = {
@@ -43,9 +44,9 @@ if __name__ == '__main__':
     eval_env = make_vec_env('SFCDeploySimpleModeEnv-v0', n_envs=1, env_kwargs=env_kwargs, vec_env_cls=SubprocVecEnv, seed=np.random.randint(0, 2**31 - 1) )
     # check_env(env, warn=True)
 
-    checkpoint_call_back = CheckpointCallback(save_freq=100_000, save_path='model/sfc_deploy_simple_mode/'+current_time+'/', name_prefix='model')
+    checkpoint_call_back = CheckpointCallback(save_freq=5_000, save_path='model/sfc_deploy_simple_mode/'+current_time+'/', name_prefix='model')
     eval_callback = EvalCallback(eval_env, best_model_save_path='model/sfc_deploy_simple_mode/'+current_time+'/', log_path='model/sfc_deploy_simple_mode/'+current_time+'/',
-                                 eval_freq=10_000, n_eval_episodes=3, deterministic=True)
+                                 eval_freq=500, n_eval_episodes=3, deterministic=True)
 
     policy_kwargs = dict(activation_fn=th.nn.ReLU,
                          net_arch=dict(pi=[512, 512, 512, 512], vf=[512, 512, 512, 512]))
@@ -57,10 +58,11 @@ if __name__ == '__main__':
                 # clip_range_vf=0.5,
                 ent_coef=0.02,
                 stats_window_size=10,)
+    # model = PPO.load('model/sfc_deploy_simple_mode/20231106-014601/best_model.zip', env)
     # model = A2C('MultiInputPolicy', env, policy_kwargs=policy_kwargs, verbose=2, tensorboard_log="model/tensorboard_log/"+current_time+"/",
     #             device='cpu',
     #             learning_rate=0.0001,
     #             stats_window_size=10,)
-    model.learn(total_timesteps=150*60*60*10, callback=[checkpoint_call_back, eval_callback])
+    model.learn(total_timesteps=150*60*60*25, callback=[checkpoint_call_back, eval_callback])
 
     # model.save("model/sfc_deploy_simple_mode/"+current_time)

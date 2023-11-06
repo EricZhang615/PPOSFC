@@ -7,7 +7,7 @@ from SFCSim2.network import Network
 from SFCSim2.vnf import VNFType
 from SFCSim2.sfc import SFC
 # from nsfnet_template import init
-from triangular_lattice_template import init
+from triangular_lattice_template_600 import init
 
 template, vnf_type_template, sfc_template = init()
 vnf_type_dict = {}
@@ -26,6 +26,7 @@ while ep!=10:
     obs, rewards, terminate, trunc, info = env.step(action)
     total_reward += rewards
     if terminate:
+        print(f'delay: {env.delay_mean}')
         env.reset()
         print(total_reward)
         total_reward = 0
