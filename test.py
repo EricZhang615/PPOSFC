@@ -1,20 +1,13 @@
-import datetime
-
 import gymnasium as gym
 import numpy as np
-import torch as th
-from torch.utils.tensorboard import SummaryWriter
+
+import envs
 
 from SFCSim2.network import Network
 from SFCSim2.vnf import VNFType
 from SFCSim2.sfc import SFC
 # from nsfnet_template import init
 from triangular_lattice_template import init
-from sfc_deploy_simple_mode_env import SFCDeploySimpleModeEnv
-
-from stable_baselines3 import PPO, A2C
-from stable_baselines3.common.callbacks import CheckpointCallback, EveryNTimesteps
-from stable_baselines3.common.env_checker import check_env
 
 template, vnf_type_template, sfc_template = init()
 vnf_type_dict = {}
@@ -22,7 +15,7 @@ vnf_type_dict.update({list(vnf_type_info.keys())[0]: VNFType(vnf_type_info) for 
 sfc_list = [ SFC(sfc_info, vnf_type_dict) for sfc_info in sfc_template ]
 network = Network(template=template, vnf_type_dict=vnf_type_dict)
 
-env = SFCDeploySimpleModeEnv(network, vnf_type_dict, sfc_list, deploy_mode='vnf')
+env = envs.SFCDeploySimpleModeEnv(network, vnf_type_dict, sfc_list, deploy_mode='vnf')
 
 env.reset()
 total_reward = 0

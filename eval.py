@@ -1,13 +1,9 @@
-import gymnasium as gym
-import numpy as np
-import torch as th
-
 from SFCSim2.network import Network
 from SFCSim2.vnf import VNFType
 from SFCSim2.sfc import SFC
 # from nsfnet_template import init
 from triangular_lattice_template import init
-from sfc_deploy_simple_mode_env import SFCDeploySimpleModeEnv
+from envs.sfc_deploy_simple_mode_env import SFCDeploySimpleModeEnv
 
 from stable_baselines3 import PPO
 from stable_baselines3.common.evaluation import evaluate_policy

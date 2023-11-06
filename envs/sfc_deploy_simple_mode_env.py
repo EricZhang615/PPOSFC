@@ -13,7 +13,7 @@ from SFCSim2.network import Network
 
 
 class SFCDeploySimpleModeEnv(gym.Env):
-    def __init__(self, network: Network, vnf_types, sfc_requests, deploy_mode='vnf', writer: SummaryWriter = None):
+    def __init__(self, network: Network, vnf_types, sfc_requests, deploy_mode='vnf', writer: SummaryWriter = None, **kwargs):
         super().__init__()
         self._deploy_mode = deploy_mode
         self.network = network
@@ -123,7 +123,7 @@ class SFCDeploySimpleModeEnv(gym.Env):
             reward = -1
         if self.sfc_request_mark == len(self.sfc_requests) - 1:
             reward = 500 - avg_delay
-            print('deployed: ', deployed, 'avg_delay: ', avg_delay, 'reward: ', reward)
+            # print('deployed: ', deployed, 'avg_delay: ', avg_delay, 'reward: ', reward)
             if self._writer is not None:
                 self._writer.add_scalar('debug/reward', reward)
                 self._writer.add_scalar('debug/avg_delay', avg_delay)

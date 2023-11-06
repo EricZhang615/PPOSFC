@@ -1,6 +1,5 @@
 import datetime
 
-import gymnasium as gym
 import torch as th
 from torch.utils.tensorboard import SummaryWriter
 
@@ -9,11 +8,10 @@ from SFCSim2.vnf import VNFType
 from SFCSim2.sfc import SFC
 # from nsfnet_template import init
 from triangular_lattice_template import init
-from sfc_deploy_simple_mode_env import SFCDeploySimpleModeEnv
+from envs.sfc_deploy_simple_mode_env import SFCDeploySimpleModeEnv
 
-from stable_baselines3 import PPO, A2C
+from stable_baselines3 import PPO
 from stable_baselines3.common.callbacks import CheckpointCallback, EvalCallback
-from stable_baselines3.common.env_checker import check_env
 
 template, vnf_type_template, sfc_template = init()
 vnf_type_dict = {}
@@ -46,16 +44,5 @@ model = PPO('MultiInputPolicy', env, policy_kwargs=policy_kwargs, verbose=2, ten
 #             learning_rate=0.0001,
 #             stats_window_size=10,)
 model.learn(total_timesteps=150*60*60*10, callback=[checkpoint_call_back, eval_callback])
-# vec_env = model.get_env()
-# obs = vec_env.reset()
-# total_reward = 0
-# while True:
-#     action, _states = model.predict(obs)
-#     obs, rewards, done, info = vec_env.step(action)
-#     total_reward += rewards
-#     if done:
-#         obs = vec_env.reset()
-#         print(total_reward)
-#         total_reward = 0
 
 # model.save("model/sfc_deploy_simple_mode/"+current_time)

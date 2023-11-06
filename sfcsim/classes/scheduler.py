@@ -272,7 +272,7 @@ class dynamic_scheduler(scheduler):
         remove_link
     '''
     def __init__(self,log=True):
-#         scheduler.__init__(self)
+#         scheduler.__init__.py(self)
         super(dynamic_scheduler, self).__init__(log=log)
         self.__records=super(dynamic_scheduler, self).get_records()
         self.__history_records=[]

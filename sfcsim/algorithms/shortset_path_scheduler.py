@@ -5,7 +5,7 @@ from IPython.display import clear_output as clear
 import time
 class shortest_path_scheduler(dynamic_scheduler):
     def __init__(self,log=True):   #log=means not to print deployment procedure information
-#         scheduler.__init__(self)
+#         scheduler.__init__.py(self)
         super(shortest_path_scheduler, self).__init__(log=log)
         self.__records=super(shortest_path_scheduler, self).get_records()
 
