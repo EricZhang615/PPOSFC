@@ -16,6 +16,7 @@ class SFCDeploySimpleModeEnv(gym.Env):
     def __init__(self, network: Network, vnf_types, sfc_requests, deploy_mode='vnf', k_sp: int = 5, writer: SummaryWriter = None, **kwargs):
         super().__init__()
         self._deploy_mode = deploy_mode
+        self._k_sp = k_sp
         self.network = network
         self.num_nodes = len(self.network.nodes)
         self.num_edges = len(self.network.edges)
@@ -27,22 +28,35 @@ class SFCDeploySimpleModeEnv(gym.Env):
         self.delay_mean = 0.0
         self._writer = writer
 
-        # 观测空间 节点数*3属性（cpu mem delay）+链路数*1属性（bandwidth）+节点数*1（sfc入出节点01编码）+vnf需求2*3+sfc带宽
-        self.observation_space = spaces.Dict(
-            {
-                'nodes_cpu': spaces.Box(low=0, high=1, shape=(self.num_nodes, )),
-                'nodes_mem': spaces.Box(low=0, high=1, shape=(self.num_nodes, )),
-                'nodes_delay': spaces.Box(low=0, high=1, shape=(self.num_nodes, )),
-                # 'edges': spaces.Box(low=0, high=1, shape=(self.num_edges, )),
-                'sfc_in_out_nodes': spaces.MultiBinary(self.num_nodes),
-                'sfc_request_vnfs': spaces.Box(low=0, high=1, shape=(3*2, )),
-                # 'sfc_bandwidth': spaces.Box(low=0, high=1, shape=(1,))
-            }
-        )
+
         if deploy_mode == 'vnf':
+            # 观测空间 节点数*3属性（cpu mem delay）+链路数*1属性（bandwidth）+节点数*1（sfc入出节点01编码）+vnf需求2*3+sfc带宽
+            self.observation_space = spaces.Dict(
+                {
+                    'nodes_cpu': spaces.Box(low=0, high=1, shape=(self.num_nodes,)),
+                    'nodes_mem': spaces.Box(low=0, high=1, shape=(self.num_nodes,)),
+                    'nodes_delay': spaces.Box(low=0, high=1, shape=(self.num_nodes,)),
+                    # 'edges': spaces.Box(low=0, high=1, shape=(self.num_edges, )),
+                    'sfc_in_out_nodes': spaces.MultiBinary(self.num_nodes),
+                    'sfc_request_vnfs': spaces.Box(low=0, high=1, shape=(3 * 2,)),
+                    # 'sfc_bandwidth': spaces.Box(low=0, high=1, shape=(1,))
+                }
+            )
             # 动作空间 节点数^3
             self.action_space = spaces.MultiDiscrete([len(self.network.nodes), len(self.network.nodes), len(self.network.nodes)])
         elif deploy_mode == 'sp':
+            obs_dict = {
+                'nodes_cpu': spaces.Box(low=0, high=1, shape=(self.num_nodes,)),
+                'nodes_mem': spaces.Box(low=0, high=1, shape=(self.num_nodes,)),
+                'nodes_delay': spaces.Box(low=0, high=1, shape=(self.num_nodes,)),
+                # 'edges': spaces.Box(low=0, high=1, shape=(self.num_edges, )),
+                'sfc_in_out_nodes': spaces.MultiBinary(self.num_nodes),
+                'sfc_request_vnfs': spaces.Box(low=0, high=1, shape=(3 * 2,)),
+                # 'sfc_bandwidth': spaces.Box(low=0, high=1, shape=(1,))
+            }
+            for i in range(k_sp):
+                obs_dict['sp_'+str(i)] = spaces.MultiBinary(self.num_nodes)
+            self.observation_space = spaces.Dict(obs_dict)
             # 动作空间 前k最短路径
             self.action_space = spaces.Discrete(k_sp)
             # 生成ksp
@@ -74,7 +88,7 @@ class SFCDeploySimpleModeEnv(gym.Env):
 
         # sfc_bandwidth = [ self.sfc_requests[self.sfc_request_mark].bandwidth / 500 ]
 
-        return {
+        return_dict = {
             'nodes_cpu': np.array(cpu).astype(np.float32),
             'nodes_mem': np.array(mem).astype(np.float32),
             'nodes_delay': np.array(delay).astype(np.float32),
@@ -83,6 +97,19 @@ class SFCDeploySimpleModeEnv(gym.Env):
             'sfc_request_vnfs': np.array(sfc_request_vnfs).astype(np.float32),
             # 'sfc_bandwidth': np.array(sfc_bandwidth).astype(np.float32)
         }
+
+        if self._deploy_mode == 'sp':
+            paths = self.network.ksp[(self.sfc_requests[self.sfc_request_mark].nodes['in']['node_in'],
+                                      self.sfc_requests[self.sfc_request_mark].nodes['out']['node_out'])]
+            for i in range(self._k_sp):
+                tmp = np.array([0] * self.num_nodes).astype(np.int8)
+                path = paths[i]
+                for node in path:
+                    tmp[list_of_nodes.index(node)] = 1
+                return_dict['sp_'+str(i)] = tmp
+
+        return return_dict
+
 
     def reset(
         self,

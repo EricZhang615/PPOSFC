@@ -49,7 +49,7 @@ if __name__ == '__main__':
                                  eval_freq=3_000, n_eval_episodes=3, deterministic=True)
 
     policy_kwargs = dict(activation_fn=th.nn.ReLU,
-                         net_arch=dict(pi=[512, 512, 512, 512], vf=[512, 512, 512, 512]))
+                         net_arch=dict(pi=[256, 256], vf=[256, 256]))
     model = PPO('MultiInputPolicy', env, policy_kwargs=policy_kwargs, verbose=2, tensorboard_log="model/tensorboard_log/"+current_time+"/",
                 learning_rate=0.0001,
                 n_steps=1024,
