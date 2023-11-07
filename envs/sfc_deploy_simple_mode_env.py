@@ -13,7 +13,7 @@ from SFCSim2.network import Network
 
 
 class SFCDeploySimpleModeEnv(gym.Env):
-    def __init__(self, network: Network, vnf_types, sfc_requests, deploy_mode='vnf', writer: SummaryWriter = None, **kwargs):
+    def __init__(self, network: Network, vnf_types, sfc_requests, deploy_mode='vnf', k_sp: int = 5, writer: SummaryWriter = None, **kwargs):
         super().__init__()
         self._deploy_mode = deploy_mode
         self.network = network
@@ -44,7 +44,9 @@ class SFCDeploySimpleModeEnv(gym.Env):
             self.action_space = spaces.MultiDiscrete([len(self.network.nodes), len(self.network.nodes), len(self.network.nodes)])
         elif deploy_mode == 'sp':
             # 动作空间 前k最短路径
-            self.action_space = spaces.Discrete(5)
+            self.action_space = spaces.Discrete(k_sp)
+            # 生成ksp
+            self.network.generate_ksp(k_sp)
 
     def _get_obs(self):
         cpu = []

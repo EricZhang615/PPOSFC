@@ -27,7 +27,7 @@ if __name__ == '__main__':
 
     current_time = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
     # current_time = '20231106-014601'
-    writer = SummaryWriter("model/tensorboard_log/"+current_time+"/time_monitor")
+    # writer = SummaryWriter("model/tensorboard_log/"+current_time+"/time_monitor")
 
     env_kwargs = {
         'render_mode': None,
@@ -44,15 +44,15 @@ if __name__ == '__main__':
     eval_env = make_vec_env('SFCDeploySimpleModeEnv-v0', n_envs=1, env_kwargs=env_kwargs, vec_env_cls=SubprocVecEnv, seed=np.random.randint(0, 2**31 - 1) )
     # check_env(env, warn=True)
 
-    checkpoint_call_back = CheckpointCallback(save_freq=10_000, save_path='model/sfc_deploy_simple_mode/'+current_time+'/', name_prefix='model')
+    checkpoint_call_back = CheckpointCallback(save_freq=20_000, save_path='model/sfc_deploy_simple_mode/'+current_time+'/', name_prefix='model')
     eval_callback = EvalCallback(eval_env, best_model_save_path='model/sfc_deploy_simple_mode/'+current_time+'/', log_path='model/sfc_deploy_simple_mode/'+current_time+'/',
-                                 eval_freq=2_000, n_eval_episodes=3, deterministic=True)
+                                 eval_freq=3_000, n_eval_episodes=3, deterministic=True)
 
     policy_kwargs = dict(activation_fn=th.nn.ReLU,
                          net_arch=dict(pi=[512, 512, 512, 512], vf=[512, 512, 512, 512]))
     model = PPO('MultiInputPolicy', env, policy_kwargs=policy_kwargs, verbose=2, tensorboard_log="model/tensorboard_log/"+current_time+"/",
                 learning_rate=0.0001,
-                n_steps=512,
+                n_steps=1024,
                 batch_size=256,
                 # clip_range=0.5,
                 # clip_range_vf=0.5,

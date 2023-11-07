@@ -18,6 +18,7 @@ class Network(nx.Graph):
         self.generate(template)
         self.vnf_type_dict = {}
         self.update_vnf_type(vnf_type_dict)
+        self.ksp = {}
 
     def generate(self, template: Dict[str, Union[Nodes, NodeAttr, Edges, EdgesAttr]]) -> None:
         self.add_nodes(template['nodes'], template['node_attrs'])
@@ -35,6 +36,17 @@ class Network(nx.Graph):
 
     def update_vnf_type(self, vnf_type_dict: Dict[str, VNFType]) -> None:
         self.vnf_type_dict = copy.deepcopy(vnf_type_dict)
+
+    def generate_ksp(self, k):
+        for i in range(1, len(self.nodes)+1):
+            for j in range(1, len(self.nodes)+1):
+                paths = nx.shortest_simple_paths(self, source='node'+str(i), target='node'+str(j), weight='transmission_delay')
+                path_list = []
+                for m, p in enumerate(paths):
+                    path_list.append(p)
+                    if m == k:
+                        break
+                self.ksp[('node'+str(i), 'node'+str(j))] = path_list
 
     def reset(self):
         for node in self.nodes:
@@ -198,19 +210,16 @@ class Network(nx.Graph):
         sfc.delay_actual = 0
         return True, f"undeploy sfc success -- sfc: {sfc.name}"
 
-    def deploy_sfc_by_sp(self, sfc: SFC, k, is_delay_limit_enable=True):
+    def deploy_sfc_by_sp(self, sfc: SFC, k, is_delay_limit_enable=True, check_delay_only=False) -> (bool, str):
         source = sfc.nodes['in']['node_in']
         target = sfc.nodes['out']['node_out']
         num_remain_vnf = len(list(sfc.nodes)) - 2
-        paths = nx.shortest_simple_paths(self, source, target, weight='transmission_delay')
-        path = []
-        for i, path in enumerate(paths):
-            if i == k:
-                break
-        if not path:
+        if self.ksp is {}:
             print("k sp empty")
-            return False, f"deploy sfc failed -- k sp empty"
-        del i, paths
+            return False, f"deploy sfc failed -- ksp empty"
+        path = self.ksp[(source, target)][k]
+
+        # 均匀排布vnf位置
         target_node_dict = {}
         for vnf in sfc.nodes:
             if vnf != 'in' and vnf != 'out':
@@ -220,15 +229,16 @@ class Network(nx.Graph):
                 else:
                     target_node_dict[vnf] = path[0]
                     num_remain_vnf -= 1
-        return self.deploy_sfc_by_vnf(sfc, target_node_dict, is_delay_limit_enable)
+        return self.deploy_sfc_by_vnf(sfc, target_node_dict, is_delay_limit_enable, check_delay_only)
 
 
-    def deploy_sfc_by_vnf(self, sfc: SFC, target_node_dict, is_delay_limit_enable=True) -> (bool, str):
+    def deploy_sfc_by_vnf(self, sfc: SFC, target_node_dict, is_delay_limit_enable=True, check_delay_only=False) -> (bool, str):
         '''
         按vnf目标节点部署sfc；vnf根据输入目标物理节点部署，vl按节点间最短路径部署
         target_node_dict: {'vnf1': 'node1', 'vnf2': 'node2', ...}
         Parameters
         ----------
+        check_delay_only
         is_delay_limit_enable
         target_node_dict
         sfc
@@ -262,7 +272,7 @@ class Network(nx.Graph):
 
         # 检查vnf部署是否可行
         node_cpu_used_tmp = {}
-        if is_delay_limit_enable:
+        if is_delay_limit_enable or check_delay_only:
             for vnf, target_node in target_node_dict.items():
                 try:
                     self.check_before_deploy_vnf(sfc, vnf, target_node)
@@ -289,9 +299,11 @@ class Network(nx.Graph):
                 return False, f"deploy sfc failed -- vl: {e}"
 
         # 检查delay是否超时
-        if is_delay_limit_enable:
-            for vnf, target_node in target_node_dict:
+        if is_delay_limit_enable or check_delay_only:
+            for vnf, target_node in target_node_dict.items():
                 delay += self.calc_node_delay_simple_mode(target_node, estimate=node_cpu_used_tmp[target_node])
+            if check_delay_only:
+                return delay
             if delay > sfc.delay_limit:
                 return False, f"deploy sfc failed -- delay: {delay} > {sfc.delay_limit}"
 
