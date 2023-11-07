@@ -31,7 +31,7 @@ for i in range(1000):
     action_list.append(action)
     obs, rewards, dones, info = vec_env.step(action)
     total_reward += rewards
-    if dones or i == 598:
+    if dones:
         print(total_reward)
         break
         # obs = vec_env.reset()

@@ -217,27 +217,53 @@ class Network(nx.Graph):
         if self.ksp is {}:
             print("k sp empty")
             return False, f"deploy sfc failed -- ksp empty"
-        path = self.ksp[(source, target)][k]
+        path = copy.deepcopy(self.ksp[(source, target)][k])
+        target_node_list = copy.deepcopy(path)
 
         # 均匀排布vnf位置
         target_node_dict = {}
-        for vnf in sfc.nodes:
-            if vnf != 'in' and vnf != 'out':
-                if len(path) >= num_remain_vnf:
-                    target_node_dict[vnf] = path.pop(0)
-                    num_remain_vnf -= 1
+        vl_deploy_plan = {}
+        # 逐项重复列表中的每个元素，直到列表的长度等于vnf数量
+        if len(target_node_list) < num_remain_vnf:
+            tmp = [item for item in target_node_list for _ in range(num_remain_vnf // len(target_node_list) + 1)]
+            target_node_list = tmp[:num_remain_vnf]
+        for i in range(1, num_remain_vnf+1):
+            target_node_dict['vnf' + str(i)] = target_node_list[i-1]
+
+        # 生成链路部署方案 按照ksp为基础
+        for vl in sfc.edges:
+            if vl[0] == 'in':
+                source = sfc.nodes['in']['node_in']
+                target = target_node_dict[vl[1]]
+            elif vl[1] == 'out':
+                source = target_node_dict[vl[0]]
+                target = sfc.nodes['out']['node_out']
+            else:
+                source = target_node_dict[vl[0]]
+                target = target_node_dict[vl[1]]
+            if source == target:
+                vl_deploy_plan[vl] = source
+            else:
+                vl_path = []
+                index_source = path.index(source)
+                index_target = path.index(target)
+                if index_source < index_target:
+                    vl_path = path[index_source:index_target + 1]
                 else:
-                    target_node_dict[vnf] = path[0]
-                    num_remain_vnf -= 1
-        return self.deploy_sfc_by_vnf(sfc, target_node_dict, is_delay_limit_enable, check_delay_only)
+                    vl_path = path[index_target:index_source + 1]
+
+                vl_deploy_plan[vl] = [(vl_path[i], vl_path[i + 1]) for i in range(len(vl_path) - 1)]
+
+        return self.deploy_sfc_by_vnf(sfc, target_node_dict, vl_deploy_plan=vl_deploy_plan, is_delay_limit_enable=is_delay_limit_enable, check_delay_only=check_delay_only)
 
 
-    def deploy_sfc_by_vnf(self, sfc: SFC, target_node_dict, is_delay_limit_enable=True, check_delay_only=False) -> (bool, str):
+    def deploy_sfc_by_vnf(self, sfc: SFC, target_node_dict, vl_deploy_plan=None, is_delay_limit_enable=True, check_delay_only=False) -> (bool, str):
         '''
         按vnf目标节点部署sfc；vnf根据输入目标物理节点部署，vl按节点间最短路径部署
         target_node_dict: {'vnf1': 'node1', 'vnf2': 'node2', ...}
         Parameters
         ----------
+        vl_deploy_plan
         check_delay_only
         is_delay_limit_enable
         target_node_dict
@@ -253,22 +279,24 @@ class Network(nx.Graph):
         if sfc.is_deployed():
             return False, f"deploy sfc failed -- sfc: {sfc.name} status: {sfc.status}"
         # 生成链路部署方案
-        vl_deploy_plan = {}     # {('in', 'vnf1'): 'node1', ('vnf1', 'vnf2'): [('node1', 'node2'), ...], ...}
-        for vl in sfc.edges:
-            if vl[0] == 'in':
-                source = sfc.nodes['in']['node_in']
-                target = target_node_dict[vl[1]]
-            elif vl[1] == 'out':
-                source = target_node_dict[vl[0]]
-                target = sfc.nodes['out']['node_out']
-            else:
-                source = target_node_dict[vl[0]]
-                target = target_node_dict[vl[1]]
-            if source == target:
-                vl_deploy_plan[vl] = source
-            else:
-                path = nx.shortest_path(self, source, target, weight='transmission_delay')
-                vl_deploy_plan[vl] = [(path[i], path[i+1]) for i in range(len(path)-1)]
+        # vl_deploy_plan = {}     # {('in', 'vnf1'): 'node1', ('vnf1', 'vnf2'): [('node1', 'node2'), ...], ...}
+        if vl_deploy_plan is None:
+            vl_deploy_plan = {}
+            for vl in sfc.edges:
+                if vl[0] == 'in':
+                    source = sfc.nodes['in']['node_in']
+                    target = target_node_dict[vl[1]]
+                elif vl[1] == 'out':
+                    source = target_node_dict[vl[0]]
+                    target = sfc.nodes['out']['node_out']
+                else:
+                    source = target_node_dict[vl[0]]
+                    target = target_node_dict[vl[1]]
+                if source == target:
+                    vl_deploy_plan[vl] = source
+                else:
+                    path = nx.shortest_path(self, source, target, weight='transmission_delay')
+                    vl_deploy_plan[vl] = [(path[i], path[i+1]) for i in range(len(path)-1)]
 
         # 检查vnf部署是否可行
         node_cpu_used_tmp = {}
