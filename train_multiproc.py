@@ -34,7 +34,8 @@ if __name__ == '__main__':
         'network': network,
         'vnf_types': vnf_type_dict,
         'sfc_requests': sfc_list,
-        'deploy_mode': 'vnf',
+        'deploy_mode': 'sp',
+        'k_sp': 20
         # 'writer': writer
     }
 
