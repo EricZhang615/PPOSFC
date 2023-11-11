@@ -9,6 +9,7 @@ from torch.utils.tensorboard import SummaryWriter
 from SFCSim2.network import Network
 from SFCSim2.vnf import VNFType
 from SFCSim2.sfc import SFC
+from custom_features_extractor import TransformerExtractor
 # from nsfnet_template import init
 from triangular_lattice_template_600 import init
 import envs
@@ -34,8 +35,10 @@ if __name__ == '__main__':
         'network': network,
         'vnf_types': vnf_type_dict,
         'sfc_requests': sfc_list,
-        'deploy_mode': 'sp',
-        'k_sp': 20
+        # 'deploy_mode': 'sp',
+        'deploy_mode': 'vnf',
+        'k_sp': 20,
+        'tf': True
         # 'writer': writer
     }
 
@@ -50,7 +53,8 @@ if __name__ == '__main__':
                                  eval_freq=3_000, n_eval_episodes=3, deterministic=True)
 
     policy_kwargs = dict(activation_fn=th.nn.ReLU,
-                         net_arch=dict(pi=[256, 256], vf=[256, 256]))
+                         net_arch=dict(pi=[256, 256], vf=[256, 256]),
+                         features_extractor_class=TransformerExtractor,)
     model = PPO('MultiInputPolicy', env, policy_kwargs=policy_kwargs, verbose=2, tensorboard_log="model/tensorboard_log/"+current_time+"/",
                 learning_rate=0.0001,
                 n_steps=1024,
